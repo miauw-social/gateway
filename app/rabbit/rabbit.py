@@ -30,22 +30,23 @@ class RabbitMQ:
             aio_pika.Message(body=data), routing_key=queue_name
         )
 
+    async def basic_publish_dict(self, queue_name: str, data: dict) -> None:
+        data = json.dumps(data).encode("utf-8")
+        await self.basic_publish(queue_name, data)
+
     async def on_response(self, message: aio_pika.abc.AbstractIncomingMessage) -> None:
-        print("[x] ON RESPONSE")
         if message.correlation_id is None:
             print(f"Bad message {message!r}")
 
             return
         
         future: asyncio.Future = self.q.pop(message.correlation_id)
-        future.set_result(message.body)
+        future.set_result(json.loads(message.body))
 
     async def call(self, queue_name: str, data: dict):
-        print("[x] CALL - START")
         correlation_id = str(uuid.uuid4())
         x = self.loop.create_future()
         self.q[correlation_id] = x
-        print("[x] CALL - BEFORE SEND")
         await self.channel.default_exchange.publish(
             aio_pika.Message(
                 json.dumps(data).encode(),
@@ -55,9 +56,6 @@ class RabbitMQ:
             ),
             routing_key=queue_name,
         )
-        print("[x] sleep")
-        await asyncio.sleep(5)
-        print("[x] CALL - RETURN SEND")
         return await asyncio.ensure_future(x)
 
 
