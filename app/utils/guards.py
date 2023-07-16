@@ -1,5 +1,5 @@
 from fastapi import Request, HTTPException
-from rabbit.rabbit import r
+from utils.rabbit import r
 
 async def protected_route(req: Request):
     logged_in = await r.call("auth.session.exists", {"sid": req.cookies["session"]})
