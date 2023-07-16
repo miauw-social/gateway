@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Depends
-from rabbit.rabbit import r, LOOP
+from fastapi import FastAPI, Depends, Request
+from utils.rabbit import r, LOOP
+from utils.exceptions import UserNotFoundException, UserAlreadyExsistsException, ProblemJSONResponse
 from routes.user import userRouter
 from routes.auth import authRouter
 from utils.guards import protected_route
@@ -33,15 +34,22 @@ async def health():
     return {"ok": 1}
 
 
+@app.exception_handler(UserNotFoundException)
+async def user_not_found_exception(req: Request, exc: UserNotFoundException):
+    return ProblemJSONResponse({**exc.content}, status_code=exc.status_code)
+
+@app.exception_handler(UserAlreadyExsistsException)
+async def user_already_exists_exception(req: Request, exc: UserAlreadyExsistsException):
+    return ProblemJSONResponse({**exc.content}, status_code=exc.status_code)
+
 @app.on_event("startup")
 async def setup():
     await r.connect()
     
-    
 
 @app.on_event("shutdown")
 async def end():
-    pass
+    await r.close()
 
 if __name__ == "__main__":
     config = Config(app=app, loop=LOOP)

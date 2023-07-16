@@ -1,16 +1,27 @@
 from fastapi import APIRouter, Request, Response
-from rabbit.rabbit import r
+from utils.rabbit import sessioner
 from schemas.auth import LoginDataEmail, LoginDataUsername
 import pytz
 import datetime
 
 authRouter = APIRouter(prefix="/auth", tags=["auth"])
 
+
 @authRouter.post("/", description="login user")
-async def create_user(data: LoginDataEmail| LoginDataUsername, req: Request, resp: Response):
-    user_profile = await r.call("user.find", {"login": data.email if type(data) is LoginDataEmail else data.username})
-    session = await r.call("auth.login", {"password": data.password, "id": str(user_profile["id"]), "ip": req.client.host})
-    resp.set_cookie("session", value=session["id"], expires=int(datetime.timedelta(days=2).total_seconds()), httponly=True)
+async def create_user(
+    data: LoginDataEmail | LoginDataUsername, req: Request, resp: Response
+):
+    sid = await sessioner.create(
+        dict(data).get("email") or dict(data).get("password"),
+        data.password,
+        ip=req.client.host,
+    )
+    resp.set_cookie(
+        "session",
+        value=sid,
+        expires=int(datetime.timedelta(days=2).total_seconds()),
+        httponly=True,
+    )
     return {"ok": 1}
 
 
